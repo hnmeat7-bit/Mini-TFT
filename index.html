@@ -2,73 +2,28 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<title>Mini TFT Full</title>
+<title>Mini TFT Synergy</title>
 
 <style>
-body{
-margin:0;
-overflow:hidden;
-background:#0b0b12;
-font-family:Arial;
-color:white;
-}
+body{margin:0;overflow:hidden;background:#0b0b12;font-family:Arial;color:white;}
+canvas{background:#111;display:block;}
 
-canvas{
-background:#111;
-display:block;
-}
+#ui{position:fixed;top:10px;left:10px;z-index:10;}
+button{margin:4px;padding:8px;background:#222;color:white;border:1px solid #444;cursor:pointer;}
 
-#topbar{
-position:fixed;
-top:10px;
-left:10px;
-z-index:10;
-}
+#shop{position:fixed;bottom:10px;left:10px;display:flex;gap:8px;}
+.card{width:60px;height:60px;background:#2a2a2a;display:flex;align-items:center;justify-content:center;border:1px solid #555;cursor:pointer;font-size:18px;}
 
-button{
-margin:4px;
-padding:8px;
-background:#222;
-color:white;
-border:1px solid #444;
-cursor:pointer;
-}
-
-#shop{
-position:fixed;
-bottom:10px;
-left:10px;
-display:flex;
-gap:8px;
-}
-
-.card{
-width:60px;
-height:60px;
-background:#2a2a2a;
-display:flex;
-align-items:center;
-justify-content:center;
-border:1px solid #555;
-cursor:pointer;
-font-size:18px;
-}
-
-#info{
-position:fixed;
-top:10px;
-right:10px;
-}
+#info{position:fixed;top:10px;right:10px;}
 </style>
 </head>
 
 <body>
 
-<div id="topbar">
-<button onclick="startPrepare()">PREPARE</button>
+<div id="ui">
 <button onclick="startBattle()">BATTLE</button>
+<button onclick="startPrepare()">PREPARE</button>
 <button onclick="nextRound()">NEXT</button>
-<button onclick="rerollShop()">REROLL (1G)</button>
 </div>
 
 <div id="info">
@@ -78,31 +33,26 @@ right:10px;
 </div>
 
 <canvas id="c"></canvas>
-
 <div id="shop"></div>
 
 <script>
-
-/* =========================
-   CANVAS
-========================= */
 
 const c=document.getElementById("c");
 const ctx=c.getContext("2d");
 c.width=innerWidth;
 c.height=innerHeight;
 
-/* =========================
+/* ======================
    STATE
-========================= */
+====================== */
 
 let state="prepare";
 let gold=10;
 let round=1;
 
-/* =========================
-   UNITS
-========================= */
+/* ======================
+   ENTITIES
+====================== */
 
 let bench=[];
 let board=[];
@@ -110,9 +60,9 @@ let enemies=[];
 
 const pool=["⚔️","🛡️","🔥","🏹"];
 
-/* =========================
+/* ======================
    UNIT
-========================= */
+====================== */
 
 function Unit(type,tier=1){
 this.type=type;
@@ -124,9 +74,9 @@ this.x=0;
 this.y=0;
 }
 
-/* =========================
+/* ======================
    ENEMY
-========================= */
+====================== */
 
 function Enemy(){
 this.x=Math.random()*c.width;
@@ -135,9 +85,9 @@ this.hp=40+round*10;
 this.alive=true;
 }
 
-/* =========================
+/* ======================
    SHOP
-========================= */
+====================== */
 
 function renderShop(){
 let shop=document.getElementById("shop");
@@ -161,18 +111,11 @@ shop.appendChild(div);
 }
 }
 
-function rerollShop(){
-if(gold<1)return;
-gold--;
-renderShop();
-}
-
-/* =========================
+/* ======================
    PLACE
-========================= */
+====================== */
 
 c.addEventListener("click",e=>{
-
 if(state!=="prepare")return;
 
 let u=bench.pop();
@@ -184,19 +127,48 @@ u.y=e.clientY;
 board.push(u);
 });
 
-/* =========================
-   MERGE (합성)
-========================= */
+/* ======================
+   🔥 SYNERGY SYSTEM
+====================== */
 
-function mergeUnits(){
+function applySynergy(){
+
+let count={};
+
+for(let u of board){
+count[u.type]=(count[u.type]||0)+1;
+}
+
+// 3개 이상이면 버프
+for(let u of board){
+if(count[u.type]>=3){
+u.atk*=1.02;
+u.hp*=1.01;
+}
+}
+}
+
+/* ======================
+   🔥 AUTO MERGE (2 → 3성)
+====================== */
+
+function autoMerge(){
+
+// 3성까지 합성
 for(let i=0;i<board.length;i++){
 for(let j=i+1;j<board.length;j++){
+
+if(!board[i]||!board[j])continue;
 
 if(board[i].type===board[j].type && board[i].tier===board[j].tier){
 
 board[i].tier++;
-board[i].hp*=1.5;
-board[i].atk*=1.5;
+
+board[i].hp*=1.7;
+board[i].atk*=1.7;
+
+// 3성 제한 느낌
+if(board[i].tier>3)board[i].tier=3;
 
 board.splice(j,1);
 return;
@@ -205,9 +177,9 @@ return;
 }
 }
 
-/* =========================
+/* ======================
    AI
-========================= */
+====================== */
 
 function unitAI(u){
 
@@ -267,31 +239,9 @@ target.hp-=0.3;
 }
 }
 
-/* =========================
+/* ======================
    FLOW
-========================= */
-
-function autoMerge(){
-for(let i=0;i<board.length;i++){
-for(let j=i+1;j<board.length;j++){
-
-if(!board[i] || !board[j]) continue;
-
-if(
-board[i].type === board[j].type &&
-board[i].tier === board[j].tier
-){
-
-board[i].tier++;
-board[i].hp *= 1.6;
-board[i].atk *= 1.6;
-
-board.splice(j,1);
-return; // 한 번에 하나씩 합성 (롤토 방식)
-}
-}
-}
-}
+====================== */
 
 function startBattle(){
 state="battle";
@@ -302,17 +252,21 @@ enemies.push(new Enemy());
 }
 }
 
+function startPrepare(){
+state="prepare";
+renderShop();
+}
+
 function nextRound(){
 round++;
 gold+=5;
 state="prepare";
 renderShop();
-merge();
 }
 
-/* =========================
+/* ======================
    DRAW
-========================= */
+====================== */
 
 function draw(){
 
@@ -328,7 +282,7 @@ ctx.strokeRect(x,y,80,80);
 
 // units
 for(let u of board){
-ctx.fillStyle=u.tier===1?"cyan":"lime";
+ctx.fillStyle=u.tier===1?"cyan":u.tier===2?"lime":"gold";
 ctx.fillRect(u.x,u.y,20,20);
 
 ctx.fillStyle="white";
@@ -343,11 +297,17 @@ ctx.fillRect(e.x,e.y,20,20);
 }
 }
 
-/* =========================
-   UPDATE
-========================= */
+/* ======================
+   UPDATE LOOP
+====================== */
 
 function update(){
+
+// 🔥 자동 합성
+if(state==="prepare"){
+autoMerge();
+applySynergy();
+}
 
 if(state==="battle"){
 
@@ -360,6 +320,7 @@ enemyAI(e);
 if(e.hp<=0)e.alive=false;
 }
 
+// 승리
 if(enemies.every(e=>!e.alive)){
 state="prepare";
 gold+=5;
@@ -368,9 +329,9 @@ renderShop();
 }
 }
 
-/* =========================
+/* ======================
    LOOP
-========================= */
+====================== */
 
 function loop(){
 
