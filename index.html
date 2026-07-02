@@ -271,10 +271,26 @@ target.hp-=0.3;
    FLOW
 ========================= */
 
-function startPrepare(){
-state="prepare";
-merge();
-renderShop();
+function autoMerge(){
+for(let i=0;i<board.length;i++){
+for(let j=i+1;j<board.length;j++){
+
+if(!board[i] || !board[j]) continue;
+
+if(
+board[i].type === board[j].type &&
+board[i].tier === board[j].tier
+){
+
+board[i].tier++;
+board[i].hp *= 1.6;
+board[i].atk *= 1.6;
+
+board.splice(j,1);
+return; // 한 번에 하나씩 합성 (롤토 방식)
+}
+}
+}
 }
 
 function startBattle(){
