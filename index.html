@@ -2,20 +2,22 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>Mini TFT - RELEASE</title>
 
 <style>
 body{
 margin:0;
 overflow:hidden;
-background:#060610;
+background:#050510;
 font-family:Arial;
 color:white;
+touch-action:none;
 }
 
-canvas{display:block;background:#0f0f18;}
+canvas{display:block;background:#0e0e18;}
 
-/* ================= UI ================= */
+/* UI */
 #ui{
 position:fixed;
 top:10px;
@@ -27,19 +29,20 @@ button{
 margin:3px;
 padding:7px 10px;
 background:#222;
-border:1px solid #444;
 color:white;
+border:1px solid #444;
 cursor:pointer;
 }
 
+/* INFO */
 #info{
 position:fixed;
 top:10px;
 right:10px;
-font-size:14px;
+font-size:13px;
 }
 
-/* ================= SHOP ================= */
+/* SHOP */
 #shop{
 position:fixed;
 bottom:10px;
@@ -49,8 +52,7 @@ gap:8px;
 }
 
 .card{
-width:60px;
-height:60px;
+width:60px;height:60px;
 background:#2a2a2a;
 display:flex;
 align-items:center;
@@ -60,8 +62,8 @@ cursor:pointer;
 font-size:18px;
 }
 
-/* ================= OVERLAY ================= */
-#overlay{
+/* OVER */
+#over{
 position:fixed;
 top:0;left:0;
 width:100%;height:100%;
@@ -70,23 +72,7 @@ justify-content:center;
 align-items:center;
 flex-direction:column;
 background:rgba(0,0,0,0.85);
-z-index:100;
-}
-
-#overlay button{
-padding:12px 20px;
-margin-top:10px;
-}
-
-/* flash */
-#flash{
-position:fixed;
-top:0;left:0;
-width:100%;
-height:100%;
-background:white;
-opacity:0;
-pointer-events:none;
+z-index:50;
 }
 </style>
 </head>
@@ -96,40 +82,26 @@ pointer-events:none;
 <div id="ui">
 <button onclick="startBattle()">BATTLE</button>
 <button onclick="startPrepare()">PREPARE</button>
-<button onclick="reroll()">REROLL</button>
+<button onclick="saveGame()">SAVE</button>
+<button onclick="loadGame()">LOAD</button>
 </div>
 
 <div id="info">
-GOLD:<span id="gold">10</span> |
-LV:<span id="lv">1</span> |
-XP:<span id="xp">0</span> |
-ROUND:<span id="round">1</span> |
-STATE:<span id="state">menu</span>
+GOLD:<span id="gold"></span> |
+LV:<span id="lv"></span> |
+ROUND:<span id="round"></span> |
+STATE:<span id="state"></span>
 </div>
 
 <div id="shop"></div>
 <canvas id="c"></canvas>
 
-<div id="flash"></div>
-
-<div id="overlay">
-<h1 id="result">GAME OVER</h1>
+<div id="over">
+<h1 id="result"></h1>
 <button onclick="restart()">RESTART</button>
 </div>
 
 <script>
-
-/* ================= AUDIO ================= */
-const audio = new (window.AudioContext||window.webkitAudioContext)();
-function beep(f,d){
-let o=audio.createOscillator();
-let g=audio.createGain();
-o.connect(g);g.connect(audio.destination);
-o.frequency.value=f;
-g.gain.value=0.08;
-o.start();
-setTimeout(()=>o.stop(),d);
-}
 
 /* ================= CANVAS ================= */
 const c=document.getElementById("c");
@@ -137,30 +109,26 @@ const ctx=c.getContext("2d");
 c.width=innerWidth;
 c.height=innerHeight;
 
-/* ================= GAME STATE ================= */
+/* ================= STATE ================= */
 let state="menu";
-let gold=10,lv=1,xp=0,round=1;
-let gameOver=false;
+let gold=10,lv=1,round=1;
 
 /* ================= ENTITIES ================= */
 let board=[];
 let enemies=[];
-let effects=[];
 let dragging=null;
 
-const pool=["⚔️","🛡️","🔥","🏹","⚡"];
+const pool=["⚔️","🛡️","🔥","🏹"];
 
 /* ================= UNIT ================= */
 function Unit(t){
 this.type=t;
-this.tier=1;
 this.hp=60;
 this.maxhp=60;
-this.atk=6;
+this.atk=5;
 this.range=80;
 this.x=0;
 this.y=0;
-this.cool=0;
 this.role=(t==="🛡️")?"tank":(t==="🔥")?"mage":"dps";
 }
 
@@ -168,229 +136,176 @@ this.role=(t==="🛡️")?"tank":(t==="🔥")?"mage":"dps";
 function Enemy(){
 this.x=Math.random()*c.width;
 this.y=Math.random()*c.height/2;
-this.hp=60+round*10;
+this.hp=60+round*8;
 this.maxhp=this.hp;
 this.alive=true;
-this.boss=(round%5===0);
-}
-
-/* ================= START ================= */
-function startPrepare(){
-state="prepare";
-document.getElementById("overlay").style.display="none";
-renderShop();
-}
-
-/* ================= BATTLE ================= */
-function startBattle(){
-state="battle";
-enemies=[];
-for(let i=0;i<6;i++)enemies.push(new Enemy());
-}
-
-/* ================= RESTART ================= */
-function restart(){
-location.reload();
 }
 
 /* ================= SHOP ================= */
 function renderShop(){
-let shop=document.getElementById("shop");
-shop.innerHTML="";
+let s=document.getElementById("shop");
+s.innerHTML="";
 
 for(let i=0;i<3;i++){
 let t=pool[Math.floor(Math.random()*pool.length)];
 
-let div=document.createElement("div");
-div.className="card";
-div.innerText=t;
+let d=document.createElement("div");
+d.className="card";
+d.innerText=t;
 
-div.onclick=()=>{
+d.onclick=()=>{
 if(gold<3)return;
 
 let u=new Unit(t);
-u.x=innerWidth/2 + Math.random()*150-75;
-u.y=innerHeight/2 + Math.random()*150-75;
+u.x=innerWidth/2;
+u.y=innerHeight/2;
 
 board.push(u);
 gold-=3;
-beep(600,60);
 renderShop();
 };
 
-shop.appendChild(div);
+s.appendChild(d);
 }
 }
 
-function reroll(){
-if(gold>0){
-gold--;
+/* ================= FLOW ================= */
+function startPrepare(){
+state="prepare";
 renderShop();
-beep(300,50);
 }
+
+function startBattle(){
+state="battle";
+enemies=[];
+for(let i=0;i<5;i++)enemies.push(new Enemy());
+}
+
+/* ================= SAVE / LOAD ================= */
+function saveGame(){
+localStorage.setItem("tft",JSON.stringify({
+gold,lv,round,board
+}));
+}
+
+function loadGame(){
+let d=JSON.parse(localStorage.getItem("tft"));
+if(!d)return;
+
+gold=d.gold;
+lv=d.lv;
+round=d.round;
+board=d.board;
 }
 
 /* ================= DRAG ================= */
-function pos(e){
-if(e.touches)return {x:e.touches[0].clientX,y:e.touches[0].clientY};
-return {x:e.clientX,y:e.clientY};
+function get(e){
+return e.touches?
+{x:e.touches[0].clientX,y:e.touches[0].clientY}
+:{x:e.clientX,y:e.clientY};
 }
 
 c.addEventListener("mousedown",e=>{
-let p=pos(e);
+let p=get(e);
 for(let u of board){
 if(Math.hypot(u.x-p.x,u.y-p.y)<18)dragging=u;
 }
 });
+
 c.addEventListener("mousemove",e=>{
 if(dragging){
-let p=pos(e);
+let p=get(e);
 dragging.x=p.x;
 dragging.y=p.y;
 }
 });
-c.addEventListener("mouseup",()=>dragging=null);
 
-/* ================= FLASH ================= */
-function flash(){
-let f=document.getElementById("flash");
-f.style.opacity=0.5;
-setTimeout(()=>f.style.opacity=0,80);
-}
+c.addEventListener("mouseup",()=>dragging=null);
 
 /* ================= MERGE ================= */
 function merge(){
 for(let i=0;i<board.length;i++){
 for(let j=i+1;j<board.length;j++){
-if(board[i]&&board[j]&&board[i].type===board[j].type&&board[i].tier===board[j].tier){
-
-board[i].tier++;
-board[i].hp*=1.6;
-board[i].atk*=1.6;
-board[i].maxhp=board[i].hp;
-
+if(board[i]&&board[j]&&board[i].type===board[j].type){
+board[i].hp*=1.4;
+board[i].atk*=1.4;
 board.splice(j,1);
-
-flash();
-beep(200,100);
 return;
 }
 }
 }
 }
 
-/* ================= SYNERGY ================= */
-function synergy(){
-let t=0,m=0,d=0;
-for(let u of board){
-if(u.role==="tank")t++;
-if(u.role==="mage")m++;
-if(u.role==="dps")d++;
-}
-for(let u of board){
-if(t>=3&&u.role==="tank")u.hp*=1.01;
-if(m>=3&&u.role==="mage")u.atk*=1.02;
-if(d>=3&&u.role==="dps")u.atk*=1.01;
-}
-}
-
-/* ================= SKILL ================= */
-function skill(u){
-if(u.cool>0){u.cool--;return;}
-
-if(u.role==="mage"){
-for(let e of enemies){
-if(e.alive){
-e.hp-=u.atk*1.6;
-effects.push({x:e.x,y:e.y,t:10});
-flash();beep(800,50);
-break;
-}
-}
-u.cool=50;
-}
-
-if(u.role==="tank"){u.hp+=1;u.cool=70;}
-if(u.role==="dps"){
-for(let e of enemies){
-if(e.alive){
-e.hp-=u.atk;
-effects.push({x:e.x,y:e.y,t:5});
-beep(500,40);
-break;
-}
-}
-u.cool=25;
-}
-}
-
 /* ================= AI ================= */
 function unitAI(u){
+
 if(state!=="battle")return;
 
-let target=null,min=9999;
+let t=null,min=9999;
+
 for(let e of enemies){
 if(!e.alive)continue;
-let d=Math.hypot(e.x-u.x,e.y-u.y);
-if(d<min){min=d;target=e;}
-}
-if(!target)return;
 
-let dx=target.x-u.x;
-let dy=target.y-u.y;
+let d=Math.hypot(e.x-u.x,e.y-u.y);
+if(d<min){min=d;t=e;}
+}
+
+if(!t)return;
+
+let dx=t.x-u.x;
+let dy=t.y-u.y;
 let d=Math.hypot(dx,dy);
 
 if(d<u.range){
-skill(u);
+t.hp-=u.atk*0.05;
 }else{
-u.x+=dx/d*1.1;
-u.y+=dy/d*1.1;
+u.x+=dx/d*1.2;
+u.y+=dy/d*1.2;
 }
 }
 
 function enemyAI(e){
-let target=null,min=9999;
+
+let t=null,min=9999;
+
 for(let u of board){
 let d=Math.hypot(u.x-e.x,u.y-e.y);
-if(d<min){min=d;target=u;}
+if(d<min){min=d;t=u;}
 }
-if(!target)return;
 
-let dx=target.x-e.x;
-let dy=target.y-e.y;
+if(!t)return;
+
+let dx=t.x-e.x;
+let dy=t.y-e.y;
 let d=Math.hypot(dx,dy);
 
 if(d>20){
 e.x+=dx/d;
 e.y+=dy/d;
 }else{
-target.hp-=0.6;
+t.hp-=0.5;
 }
 }
 
-/* ================= LOOP ================= */
+/* ================= GAME LOOP ================= */
 function update(){
+
+if(state==="prepare")merge();
 
 if(state==="battle"){
 
 for(let u of board)unitAI(u);
-
 for(let e of enemies){
 if(e.hp<=0)e.alive=false;
 enemyAI(e);
 }
 
-if(enemies.every(e=>!e.alive)&&state==="battle"){
+if(enemies.every(e=>!e.alive)){
 round++;
 gold+=5;
 state="prepare";
 renderShop();
 }
-}
-
-if(state==="prepare"){
-merge();
-synergy();
 }
 }
 
@@ -400,40 +315,28 @@ ctx.clearRect(0,0,c.width,c.height);
 
 for(let u of board){
 ctx.beginPath();
-ctx.fillStyle=u.role==="tank"?"#4da6ff":u.role==="mage"?"#b366ff":"#66ff99";
-ctx.arc(u.x,u.y,14,0,Math.PI*2);
+ctx.fillStyle="#66ff99";
+ctx.arc(u.x,u.y,13,0,Math.PI*2);
 ctx.fill();
-
-ctx.strokeStyle="white";
-ctx.stroke();
-
-ctx.fillStyle="red";
-ctx.fillRect(u.x-15,u.y-22,30,4);
-ctx.fillStyle="lime";
-ctx.fillRect(u.x-15,u.y-22,30*(u.hp/u.maxhp),4);
 }
 
 for(let e of enemies){
 if(!e.alive)continue;
-
 ctx.beginPath();
-ctx.fillStyle=e.boss?"purple":"red";
-ctx.arc(e.x,e.y,14,0,Math.PI*2);
+ctx.fillStyle="red";
+ctx.arc(e.x,e.y,13,0,Math.PI*2);
 ctx.fill();
-
-ctx.strokeStyle="white";
-ctx.stroke();
 }
 }
 
 /* ================= LOOP ================= */
 function loop(){
+
 draw();
 update();
 
 document.getElementById("gold").innerText=gold;
 document.getElementById("lv").innerText=lv;
-document.getElementById("xp").innerText=xp;
 document.getElementById("round").innerText=round;
 document.getElementById("state").innerText=state;
 
