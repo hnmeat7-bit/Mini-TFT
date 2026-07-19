@@ -118,18 +118,90 @@ let board=[];
 let enemies=[];
 let dragging=null;
 
-const pool=["⚔️","🛡️","🔥","🏹"];
+/* ================= UNIT DATABASE ================= */
+
+const UNITS={
+
+warrior:{
+id:"warrior",
+name:"검사",
+icon:"⚔️",
+cost:1,
+hp:100,
+atk:12,
+range:45,
+role:"fighter"
+},
+
+tank:{
+id:"tank",
+name:"기사",
+icon:"🛡️",
+cost:1,
+hp:180,
+atk:7,
+range:35,
+role:"tank"
+},
+
+mage:{
+id:"mage",
+name:"마법사",
+icon:"🔥",
+cost:2,
+hp:70,
+atk:20,
+range:140,
+role:"mage"
+},
+
+archer:{
+id:"archer",
+name:"궁수",
+icon:"🏹",
+cost:2,
+hp:80,
+atk:15,
+range:170,
+role:"ranged"
+}
+
+};
+
+const pool=[
+UNITS.warrior,
+UNITS.tank,
+UNITS.mage,
+UNITS.archer
+];
 
 /* ================= UNIT ================= */
-function Unit(t){
-this.type=t;
-this.hp=60;
-this.maxhp=60;
-this.atk=5;
-this.range=80;
+function Unit(data){
+
+this.id=data.id;
+this.name=data.name;
+this.icon=data.icon;
+
+this.hp=data.hp;
+this.maxhp=data.hp;
+
+this.atk=data.atk;
+
+this.range=data.range;
+
+this.role=data.role;
+
+this.star=1;
+
+this.level=1;
+
+this.cost=data.cost;
+
 this.x=0;
 this.y=0;
-this.role=(t==="🛡️")?"tank":(t==="🔥")?"mage":"dps";
+
+this.cool=0;
+
 }
 
 /* ================= ENEMY ================= */
@@ -151,7 +223,11 @@ let t=pool[Math.floor(Math.random()*pool.length)];
 
 let d=document.createElement("div");
 d.className="card";
-d.innerText=t;
+d.innerHTML=`
+<div style="font-size:24px">${t.icon}</div>
+<div style="font-size:11px">${t.name}</div>
+<div style="color:gold">${t.cost}G</div>
+`;
 
 d.onclick=()=>{
 if(gold<3)return;
