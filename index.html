@@ -298,24 +298,10 @@ dragging.y=p.y;
 
 c.addEventListener("mouseup",()=>dragging=null);
 
-/* ================= MERGE ================= */
-function merge(){
-for(let i=0;i<board.length;i++){
-for(let j=i+1;j<board.length;j++){
-if(board[i]&&board[j]&&board[i].type===board[j].type){
-board[i].hp*=1.4;
-board[i].atk*=1.4;
-board.splice(j,1);
-return;
-}
-}
-}
-}
-
 /* ================= AI ================= */
 function unitAI(u){
 
-if(state!=="battle")return;
+  if(state!=="battle")return;
 
 let t=null,min=9999;
 
@@ -362,27 +348,50 @@ e.y+=dy/d;
 t.hp-=0.5;
 }
 }
+  /* ================= MERGE ================= */
+function merge(){
+
+    for(let i=0;i<board.length;i++){
+
+        for(let j=i+1;j<board.length;j++){
+
+            if(board[i] && board[j] && board[i].id===board[j].id){
+
+                board[i].star=Math.min(board[i].star+1,3);
+
+                board[i].maxhp*=1.4;
+                board[i].hp=board[i].maxhp;
+                board[i].atk*=1.35;
+
+                board.splice(j,1);
+
+                return;
+            }
 
 /* ================= GAME LOOP ================= */
 function update(){
 
-if(state==="prepare")merge();
+    if(state==="prepare"){
+        merge();
+    }
 
-if(state==="battle"){
+    if(state==="battle"){
 
-for(let u of board)unitAI(u);
-for(let e of enemies){
-if(e.hp<=0)e.alive=false;
-enemyAI(e);
-}
+        for(let u of board) unitAI(u);
 
-if(enemies.every(e=>!e.alive)){
-round++;
-gold+=5;
-state="prepare";
-renderShop();
-}
-}
+        for(let e of enemies){
+            if(e.hp<=0)e.alive=false;
+            enemyAI(e);
+        }
+
+        if(enemies.every(e=>!e.alive)){
+            round++;
+            gold+=5;
+            state="prepare";
+            renderShop();
+        }
+    }
+
 }
 
 /* ================= DRAW ================= */
@@ -390,18 +399,49 @@ function draw(){
 ctx.clearRect(0,0,c.width,c.height);
 
 for(let u of board){
-ctx.beginPath();
-ctx.fillStyle="#66ff99";
-ctx.arc(u.x,u.y,13,0,Math.PI*2);
-ctx.fill();
+
+    ctx.font="30px Arial";
+    ctx.textAlign="center";
+    ctx.textBaseline="middle";
+
+    ctx.fillText(u.icon,u.x,u.y);
+
+    // HP BAR
+    ctx.fillStyle="red";
+    ctx.fillRect(u.x-18,u.y-24,36,4);
+
+    ctx.fillStyle="lime";
+    ctx.fillRect(
+        u.x-18,
+        u.y-24,
+        36*(u.hp/u.maxhp),
+        4
+    );
+
+    // STAR
+    ctx.fillStyle="gold";
+    ctx.font="12px Arial";
+    ctx.fillText("★".repeat(u.star),u.x,u.y+20);
 }
 
 for(let e of enemies){
 if(!e.alive)continue;
-ctx.beginPath();
+ctx.font="30px Arial";
+ctx.textAlign="center";
+ctx.textBaseline="middle";
+
+ctx.fillText("👾",e.x,e.y);
+
 ctx.fillStyle="red";
-ctx.arc(e.x,e.y,13,0,Math.PI*2);
-ctx.fill();
+ctx.fillRect(e.x-18,e.y-24,36,4);
+
+ctx.fillStyle="lime";
+ctx.fillRect(
+    e.x-18,
+    e.y-24,
+    36*(e.hp/e.maxhp),
+    4
+);
 }
 }
 
